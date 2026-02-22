@@ -1,0 +1,25 @@
+import yfinance as yf
+import numpy as np
+
+class RiskManager:
+    def __init__(self, ticker):
+        self.data = yf.download(ticker, start="2022-01-01")['Close']
+        self.returns = self.data.pct_change().dropna()
+
+    def calculate_var(self, confidence=0.95):
+        return np.percentile(self.returns, (1 - confidence) * 100)
+
+    def backtest_var(self, confidence=0.95):
+        var_threshold = self.calculate_var(confidence)
+        exceptions = self.returns[self.returns < var_threshold]
+        failure_rate = len(exceptions) / len(self.returns)
+        return failure_rate, len(exceptions)
+
+# Test du projet (Pétrole Brent)
+risk = RiskManager("BZ=F")
+var_95 = risk.calculate_var(0.95)
+rate, count = risk.backtest_var(0.95)
+
+print(f"VaR 95%: {var_95:.2%}")
+print(f"Exceptions trouvées: {count} (Taux: {rate:.2%})")
+print("Analyse: Le modèle est valide si le taux est proche de 5%.")
