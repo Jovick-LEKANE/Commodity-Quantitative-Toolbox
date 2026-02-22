@@ -1,0 +1,42 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+def get_strategy_performance(ticker, fast=20, slow=50, comm=0.001):
+    # Téléchargement et nettoyage
+    data = yf.download(ticker, start="2020-01-01", progress=False)
+    df = pd.DataFrame(data['Close']).copy()
+    df.columns = ['Close']
+    
+    # Calcul des moyennes et signaux
+    df['Fast'] = df['Close'].rolling(fast).mean()
+    df['Slow'] = df['Close'].rolling(slow).mean()
+    df['Signal'] = np.where(df['Fast'] > df['Slow'], 1, 0)
+    
+    # Calcul des rendements
+    df['Returns'] = df['Close'].pct_change()
+    # On décale le signal d'un jour pour ne pas "prévoir le passé"
+    df['Strategy'] = df['Signal'].shift(1) * df['Returns']
+    
+    # Déduction des frais (0.1% à chaque changement de position)
+    trades = df['Signal'].diff().fillna(0) != 0
+    df.loc[trades, 'Strategy'] -= comm
+    
+    # Calcul du rendement cumulé (Base 100)
+    return (1 + df['Strategy'].fillna(0)).cumprod()
+
+# --- Exécution et Graphique ---
+perf_gold = get_strategy_performance("GC=F") # Or
+perf_brent = get_strategy_performance("BZ=F") # Pétrole Brent
+
+plt.figure(figsize=(12, 6))
+plt.plot(perf_gold, label="Stratégie OR (Gold)", color='gold', lw=2)
+plt.plot(perf_brent, label="Stratégie BRENT (Pétrole)", color='darkblue', lw=2)
+
+plt.title("Comparaison des Performances : Or vs Pétrole Brent\n(Stratégie Croisement 20j/50j avec 0.1% de frais)", fontsize=14)
+plt.xlabel("Date")
+plt.ylabel("Rendement Cumulé (Base 1)")
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
