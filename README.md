@@ -21,3 +21,5 @@ This repository contains a suite of quantitative analysis tools specifically des
 ## 🛠️ Installation
 ```bash
 pip install -r requirements.txt
+
+![Comparaison de Performance](performance_comparison.png)
