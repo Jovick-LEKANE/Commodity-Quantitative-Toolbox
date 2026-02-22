@@ -22,4 +22,4 @@ This repository contains a suite of quantitative analysis tools specifically des
 ```bash
 pip install -r requirements.txt
 
-![Comparaison de Performance](performance_comparison.png)
+![Graph comparing the performance of gold and Brent crude oil](Graph comparing the performance of gold and Brent crude oil.png)
