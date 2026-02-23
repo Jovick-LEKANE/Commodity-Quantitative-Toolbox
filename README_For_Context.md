@@ -11,7 +11,7 @@ It integrates three main PROJECTS: derivative pricing, risk management, and algo
 **Objective**: Analyze the convergence between analytical and numerical pricing methods.
 
 - **Methodology**: Implementation of the **Black-Scholes-Merton** (BSM) model compared against a **Monte Carlo** (MC) simulation with 250,000 trajectories
-- **Data Calibration**: Models are calibrated using **Historical Volatility** (log-returns standard deviation) and the **10-Year Treasury Note** as the risk-free rate ($r$).
+- **Data Calibration**: Models are calibrated using **Historical Volatility** (log-returns standard deviation) and the **10-Year Treasury Note** as the risk-free rate ($r$). And historical volatility are extracted from yahoo finance.
 - **Risk Metrics**: Calculation of Greeks ($\Delta, \Gamma, \nu, \theta, \rho$) to demonstrate how price sensitivity evolves with market movements.
 
 
