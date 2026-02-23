@@ -1,42 +1,76 @@
 import numpy as np
+import pandas as pd
+import yfinance as yf
 from scipy.stats import norm
+
+def get_market_calibration(ticker_asset):
+    """
+    Calibrates model parameters using real market data.
+    - Risk-free rate (r): Derived from the 10-Year Treasury Note (^TNX).
+    - Volatility (vol): Annualized 252-day historical volatility.
+    """
+    # 1. Download Asset Data for Historical Volatility
+    df_asset = yf.download(ticker_asset, period="1y", progress=False)
+    
+    # Handle yfinance MultiIndex columns
+    if isinstance(df_asset.columns, pd.MultiIndex):
+        close_prices = df_asset['Close'][ticker_asset]
+    else:
+        close_prices = df_asset['Close']
+    
+    # Calculate annualized log-return volatility
+    returns = np.log(close_prices / close_prices.shift(1)).dropna()
+    hist_vol = returns.std() * np.sqrt(252) 
+    
+    # 2. Download 10-Year Treasury Note for Risk-Free Rate
+    df_tnx = yf.download("^TNX", period="1d", progress=False)
+    
+    if isinstance(df_tnx.columns, pd.MultiIndex):
+        tnx_value = df_tnx['Close']["^TNX"].iloc[-1]
+    else:
+        tnx_value = df_tnx['Close'].iloc[-1]
+        
+    rf_rate = tnx_value / 100 # Convert percentage (e.g. 4.2) to decimal (0.042)
+    
+    return float(hist_vol), float(rf_rate)
 
 class OptionPricer:
     def __init__(self, S, K, T, r, vol):
         self.S, self.K, self.T, self.r, self.vol = float(S), float(K), float(T), float(r), float(vol)
-        # Prépare d1 et d2 pour les formules analytiques
+        
+        # Pre-compute d1 and d2 for analytical formulas
         self.d1 = (np.log(self.S / self.K) + (self.r + 0.5 * self.vol**2) * self.T) / (self.vol * np.sqrt(self.T))
         self.d2 = self.d1 - self.vol * np.sqrt(self.T)
 
     def black_scholes_price(self):
-        """Prix exact via la formule de Black-Scholes-Merton"""
+        """Exact valuation using the Black-Scholes-Merton formula."""
         return self.S * norm.cdf(self.d1) - self.K * np.exp(-self.r * self.T) * norm.cdf(self.d2)
 
-    def monte_carlo_price(self, iterations=100000):
-        """Estimation par simulation avec calcul d'erreur"""
+    def monte_carlo_price(self, iterations=250000):
+        """Numerical estimation via Monte Carlo simulation with error bounds."""
         np.random.seed(42)
         Z = np.random.standard_normal(iterations)
-        # Simulation du prix final ST
+        
+        # Simulating terminal price ST under Risk-Neutral Measure
         ST = self.S * np.exp((self.r - 0.5 * self.vol**2) * self.T + self.vol * np.sqrt(self.T) * Z)
         
         payoffs = np.maximum(ST - self.K, 0)
         mc_price = np.exp(-self.r * self.T) * np.mean(payoffs)
         
-        # Erreur standard de la simulation
+        # Standard error of the simulation
         std_error = np.std(payoffs) / np.sqrt(iterations)
         return mc_price, std_error
 
     def get_all_greeks(self):
-        """Calcul de toutes les sensibilités (Greeks)"""
-        # Formules analytiques
+        """Calculates all first and second order sensitivities (Greeks)."""
         delta = norm.cdf(self.d1)
         gamma = norm.pdf(self.d1) / (self.S * self.vol * np.sqrt(self.T))
-        # Vega : pour 1% de changement de vol
+        # Vega: change for 1% change in volatility
         vega = (self.S * norm.pdf(self.d1) * np.sqrt(self.T)) * 0.01
-        # Theta : pour 1 jour de temps qui passe
+        # Theta: decay per 1 day
         theta = (-(self.S * norm.pdf(self.d1) * self.vol) / (2 * np.sqrt(self.T)) - 
                  self.r * self.K * np.exp(-self.r * self.T) * norm.cdf(self.d2)) / 365
-        # Rho : pour 1% de changement de taux (0.01)
+        # Rho: change for 1% (100bps) change in risk-free rate
         rho = (self.K * self.T * np.exp(-self.r * self.T) * norm.cdf(self.d2)) * 0.01
         
         return {
@@ -47,18 +81,34 @@ class OptionPricer:
             "Rho": rho
         }
 
-# --- Exemple d'utilisation (Option sur l'Or ou Pétrole) ---
-pricer = OptionPricer(S=100, K=105, T=1, r=0.04, vol=0.2)
+# --- Execution & Comparison Analysis ---
+if __name__ == "__main__":
+    # Asset choice: Brent Crude Oil (BZ=F)
+    ticker = "BZ=F"
+    vol_market, r_market = get_market_calibration(ticker)
+    
+    # Get current Spot Price
+    current_data = yf.download(ticker, period="1d", progress=False)
+    S_market = float(current_data['Close'][ticker].iloc[-1] if isinstance(current_data.columns, pd.MultiIndex) else current_data['Close'].iloc[-1])
 
-bs_val = pricer.black_scholes_price()
-mc_val, error = pricer.monte_carlo_price(iterations=250000)
-greeks = pricer.get_all_greeks()
+    # Initialize pricer with market-calibrated values
+    # Example: At-the-money option (K = S), 6 months maturity (T = 0.5)
+    pricer = OptionPricer(S=S_market, K=S_market, T=0.5, r=r_market, vol=vol_market)
 
-print(f"--- COMPARISON ENGINE ---")
-print(f"BS Price      : {bs_val:.4f}")
-print(f"MC Price      : {mc_val:.4f} (Err: +/- {error:.4f})")
-print(f"Convergence   : {abs(bs_val - mc_val):.6f}")
+    bs_val = pricer.black_scholes_price()
+    mc_val, error = pricer.monte_carlo_price()
+    greeks = pricer.get_all_greeks()
 
-print(f"\n--- FULL GREEK RISK PROFILE ---")
-for g, v in greeks.items():
-    print(f"{g:7} : {v:.4f}")
+    print(f"--- MARKET CALIBRATION ({ticker}) ---")
+    print(f"Spot Price (S) : {S_market:.2f}")
+    print(f"Risk-Free (r)  : {r_market:.2%}")
+    print(f"Hist. Vol (σ)  : {vol_market:.2%}")
+    
+    print(f"\n--- COMPARISON ENGINE ---")
+    print(f"BSM Price      : {bs_val:.4f}")
+    print(f"MC Price       : {mc_val:.4f} (SE: +/- {error:.4f})")
+    print(f"Abs. Gap       : {abs(bs_val - mc_val):.6f}")
+
+    print(f"\n--- RISK PROFILE (GREEKS) ---")
+    for g, v in greeks.items():
+        print(f"{g:7} : {v:.4f}")
