@@ -4,39 +4,42 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def get_strategy_performance(ticker, fast=20, slow=50, comm=0.001):
-    # Téléchargement et nettoyage
+    # Data retrieval and cleaning
     data = yf.download(ticker, start="2020-01-01", progress=False)
     df = pd.DataFrame(data['Close']).copy()
     df.columns = ['Close']
     
-    # Calcul des moyennes et signaux
+    # Technical Indicators: Fast and Slow Moving Averages
     df['Fast'] = df['Close'].rolling(fast).mean()
     df['Slow'] = df['Close'].rolling(slow).mean()
+    
+    # Signal Generation: 1 when Fast > Slow (Golden Cross), else 0
     df['Signal'] = np.where(df['Fast'] > df['Slow'], 1, 0)
     
-    # Calcul des rendements
+    # Asset Returns Calculation
     df['Returns'] = df['Close'].pct_change()
-    # On décale le signal d'un jour pour ne pas "prévoir le passé"
+    
+    # Strategy Returns: Shift signal by 1 day to avoid "look-ahead bias"
     df['Strategy'] = df['Signal'].shift(1) * df['Returns']
     
-    # Déduction des frais (0.1% à chaque changement de position)
+    # Transaction Costs: Deduct fees (0.1%) at each position swap (rebalancing)
     trades = df['Signal'].diff().fillna(0) != 0
     df.loc[trades, 'Strategy'] -= comm
     
-    # Calcul du rendement cumulé (Base 100)
+    # Cumulative Performance Calculation (Base 1)
     return (1 + df['Strategy'].fillna(0)).cumprod()
 
-# --- Exécution et Graphique ---
-perf_gold = get_strategy_performance("GC=F") # Or
-perf_brent = get_strategy_performance("BZ=F") # Pétrole Brent
+# --- Execution & Visualization ---
+perf_gold = get_strategy_performance("GC=F") # Gold Futures
+perf_brent = get_strategy_performance("BZ=F") # Brent Crude Oil Futures
 
 plt.figure(figsize=(12, 6))
-plt.plot(perf_gold, label="Stratégie OR (Gold)", color='gold', lw=2)
-plt.plot(perf_brent, label="Stratégie BRENT (Pétrole)", color='darkblue', lw=2)
+plt.plot(perf_gold, label="Gold Strategy (GC=F)", color='gold', lw=2)
+plt.plot(perf_brent, label="Brent Strategy (BZ=F)", color='darkblue', lw=2)
 
-plt.title("Comparaison des Performances : Or vs Pétrole Brent\n(Stratégie Croisement 20j/50j avec 0.1% de frais)", fontsize=14)
+plt.title("Performance Comparison: Gold vs. Brent Crude Oil\n(Moving Average Crossover 20d/50d with 0.1% fees)", fontsize=14)
 plt.xlabel("Date")
-plt.ylabel("Rendement Cumulé (Base 1)")
+plt.ylabel("Cumulative Returns (Base 1)")
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.show()
