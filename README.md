@@ -1,11 +1,16 @@
 # Commodity Quantitative Toolbox 🛢️💰
 
-This repository contains a suite of quantitative analysis tools specifically designed for Commodity markets (Energy, Metals).
+The goal of this toolbox is to bridge the gap between theoretical financial models and operational market realities. Unlike equities, commodities exhibit unique volatility patterns and geopolitical sensitivity, making them ideal for testing model robustness.
+
+It integrates three main PROJECTS: derivative pricing, risk management, and algorithmic strategy backtesting.
 
 ## 🚀 Included Projects
 
-### 1. Option Pricing Engine (Monte Carlo & Black-Scholes)
-- Implementation of the **Black-Scholes-Merton** model for theoretical valuation.
+### PROJECT 1:  Option Pricing Engine (Monte Carlo & Black-Scholes)
+
+**Objective**: Analyze the convergence between analytical and numerical pricing methods.
+
+- **Methodology**: Implementation of the Black-Scholes-Merton (BSM) model compared against a Monte Carlo (MC) simulation with 250,000 trajectories
 - **Monte Carlo simulation** with standard error calculation to validate numerical convergence.
 - Full derivation of **Greeks** (Delta, Gamma, Vega, Theta, Rho) for advanced risk management.
 
