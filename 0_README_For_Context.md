@@ -1,10 +1,10 @@
-# Commodity Quantitative Toolbox 🛢️💰
+# Commodity Quantitative Toolbox 
 
 The goal of this toolbox is to bridge the gap between theoretical financial models and operational market realities. Unlike equities, commodities exhibit unique volatility patterns and geopolitical sensitivity, making them ideal for testing model robustness.
 
 It integrates three main PROJECTS: derivative pricing, risk management, and algorithmic strategy backtesting.
 
-## 🚀 Included Projects
+##  Included Projects
 
 ### PROJECT 1:  Option Pricing Engine (Monte Carlo & Black-Scholes)
 
@@ -36,7 +36,7 @@ It integrates three main PROJECTS: derivative pricing, risk management, and algo
 - **Performance Metrics**: Focus on **Sharpe Ratio** (risk-adjusted return).
 - **Insight**: By comparing Gold and Brent, the project demonstrates how momentum strategies perform differently in "trending" vs "mean-reverting" market environments.
   
-## 🛠️ Tech Stack & Requirements
+##  Tech Stack & Requirements
 
 - **Language**: Python 3.9+ (All comments and documentation in English)
 - **Data Source**: Yahoo Finance API (yfinance)
