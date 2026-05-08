@@ -35,6 +35,25 @@ It integrates three main PROJECTS: derivative pricing, risk management, and algo
 - **Market Realism**: Integration of **0.1% transaction costs** per trade to account for slippage and commissions.
 - **Performance Metrics**: Focus on **Sharpe Ratio** (risk-adjusted return).
 - **Insight**: By comparing Gold and Brent, the project demonstrates how momentum strategies perform differently in "trending" vs "mean-reverting" market environments.
+
+### PROJECT 4: Structured Product Pricing - Step-Down Autocall
+
+**Objective**: Price a complex, path-dependent "Step-Down Phoenix" Autocall on the **CAC 40** using an optimized Monte Carlo engine.
+
+- **Product Structure**:
+    - **Maturity**: 10 years with annual observation dates.
+    - **Step-Down Mechanism**: The early redemption (Autocall) threshold decreases by **5% per year** (from 100% down to 55%), increasing the probability of recall in bearish or sideways markets.
+    - **Phoenix Coupon**: 8% annual coupon with **Memory Effect** (unpaid coupons are stored and paid if the coupon barrier is regained at any observation date).
+    - **Barriers**: A **Coupon Barrier (70%)** and a **Protection Barrier (60%)** to protect capital at maturity.
+- **Quantitative Methodology**:
+    - **Antithetic Variates**: Implementation of variance reduction by generating perfectly symmetrical price paths ($Z$ and $-Z$). This halves the statistical noise and significantly tightens the Confidence Interval.
+    - **Vectorized Simulation**: Utilizes NumPy's broadcasting and boolean masking to process 100,000 trajectories simultaneously, avoiding slow Python loops.
+    - **Performance Tracking**: The engine calculates the **Expected Life** (Duration), **Probability of Recall**, and **Probability of Capital Loss** (Barrier Breach).
+- **Market Calibration**: 
+    - **Real-Time Data**: Dynamically pulls the CAC 40 (`^FCHI`) spot price and historical volatility via the Yahoo Finance API.
+    - **Dividend Impact**: Models the "Price Return" nature of the index by integrating a dividend yield ($q$) as a continuous leakage factor in the Geometric Brownian Motion (GBM).
+- **Key Metric (95% CI)**: The script provides a **95% Confidence Interval** based on the Standard Error ($1.96 \times \frac{\sigma}{\sqrt{N}}$) to ensure the numerical estimate's precision.
+
   
 ##  Tech Stack & Requirements
 
