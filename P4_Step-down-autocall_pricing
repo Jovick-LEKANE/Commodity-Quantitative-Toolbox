@@ -1,0 +1,83 @@
+import numpy as np
+import yfinance as yf
+
+def get_cac40_market_data():
+    ticker = yf.Ticker("^FCHI")
+    hist = ticker.history(period="2y")
+    s0 = hist['Close'].iloc[-1]
+    log_returns = np.log(hist['Close'] / hist['Close'].shift(1))
+    vol = log_returns.std() * np.sqrt(252)
+    return s0, vol, 0.0325, 0.035
+
+S0, vol, r, div = get_cac40_market_data()
+
+T = 10
+n_sims = 100_000
+coupon_rate = 0.08
+coupon_barrier = 0.70
+protection_barrier = 0.60
+step_down = 0.05
+
+np.random.seed(42)
+dt = 1.0
+drift = (r - div - 0.5 * vol**2) * dt
+vol_dt = vol * np.sqrt(dt)
+
+# Antithetic variates
+Z_half = np.random.standard_normal((n_sims // 2, T))
+Z = np.concatenate([Z_half, -Z_half], axis=0)
+
+# All paths: shape (n_sims, T)
+S_paths = S0 * np.cumprod(np.exp(drift + vol_dt * Z), axis=1)
+
+payoffs = np.zeros(n_sims)
+call_year_tracker = np.zeros(n_sims)  # 0 = not called
+called = np.zeros(n_sims, dtype=bool)
+
+coupon_memory = np.zeros(n_sims)
+
+for year in range(1, T + 1):
+    S = S_paths[:, year - 1]
+    active = ~called
+
+    # Autocall threshold: Year 1 = 100%, Year 2 = 95%, ...
+    autocall_threshold = S0 * (1.0 - (year - 1) * step_down)
+
+    # Coupon condition
+    coupon_paid = np.zeros(n_sims)
+    above_coupon = active & (S >= S0 * coupon_barrier)
+    coupon_paid[above_coupon] = coupon_rate * S0 + coupon_memory[above_coupon]
+    coupon_memory[above_coupon] = 0
+    coupon_memory[active & ~above_coupon] += coupon_rate * S0
+
+    # Autocall condition
+    autocalled = active & (S >= autocall_threshold)
+    payoffs[autocalled] = (S0 + coupon_paid[autocalled]) * np.exp(-r * year)
+    call_year_tracker[autocalled] = year
+    called[autocalled] = True
+
+# Maturity settlement
+not_called = ~called
+S_T = S_paths[:, -1]
+
+above_coupon_T = not_called & (S_T >= S0 * coupon_barrier)
+final_coupon = np.where(above_coupon_T, coupon_memory, 0)
+
+above_protection = not_called & (S_T >= S0 * protection_barrier)
+below_protection = not_called & ~above_protection
+
+payoffs[above_protection] = (S0 + final_coupon[above_protection]) * np.exp(-r * T)
+payoffs[below_protection] = S_T[below_protection] * np.exp(-r * T)
+
+# --- Output ---
+price = np.mean(payoffs)
+pct = price / S0 * 100
+se = np.std(payoffs) / np.sqrt(n_sims)
+ci_low, ci_high = (price - 1.96*se)/S0*100, (price + 1.96*se)/S0*100
+
+called_mask = called
+print(f"theoritical Step-down autocall price : {price:.2f} pts ({pct:.2f}% du nominal)")
+print(f"Confidence interval 95%              : [{ci_low:.2f}%, {ci_high:.2f}%]")
+print(f"Probability of recall                : {np.mean(called_mask)*100:.1f}%")
+print(f"average lifetime                     : {np.mean(call_year_tracker[called_mask]):.2f} ans")
+print(f"Probability of capital loss          : {np.mean(payoffs < S0*np.exp(-r*T))*100:.1f}%")
